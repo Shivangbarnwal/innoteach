@@ -58,9 +58,9 @@ function safeUser(u) {
 function setCookie(res, token) {
   res.cookie('token', token, {
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 7,
+    secure: process.env.NODE_ENV === 'production', // true on Render (HTTPS)
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // cross-site cookies
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     path: '/'
   });
 }
@@ -68,7 +68,7 @@ function cookieClearOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/'
   };
 }
