@@ -35,9 +35,7 @@ router.post('/', requireAuth, requireRole('student'), upload.single('file'), asy
       student: req.user.sub
     });
 
-    const submissionData = {
-      content
-    };
+    const submissionData = { content };
 
     if (req.file) {
       submissionData.files = [
@@ -49,7 +47,6 @@ router.post('/', requireAuth, requireRole('student'), upload.single('file'), asy
     }
 
     if (existing) {
-      // Update existing submission
       existing.content = submissionData.content;
       if (submissionData.files) {
         existing.files = submissionData.files;
@@ -90,7 +87,7 @@ router.get('/mine', requireAuth, requireRole('student'), async (req, res) => {
 });
 
 /**
- * Teacher: view submissions for assignments in their courses
+ * Teacher: view all submissions for their courses
  */
 router.get('/', requireAuth, requireRole('teacher'), async (req, res) => {
   try {
@@ -101,8 +98,9 @@ router.get('/', requireAuth, requireRole('teacher'), async (req, res) => {
       })
       .populate('student', 'name email');
 
-    // Filter so teacher sees only submissions for their own courses
-    const filtered = submissions.filter(s => s.assignment?.course?.teacher?.toString() === req.user.sub);
+    const filtered = submissions.filter(
+      s => s.assignment?.course?.teacher?.toString() === req.user.sub
+    );
 
     res.json({ submissions: filtered });
   } catch (err) {
@@ -116,7 +114,9 @@ router.get('/', requireAuth, requireRole('teacher'), async (req, res) => {
  */
 router.patch('/:id/grade', requireAuth, requireRole('teacher'), async (req, res) => {
   try {
-    const { grade, feedback } = req.body;
+    let { score, feedback } = req.body;
+    if (score !== undefined) score = Number(score); // ensure number
+
     const sub = await Submission.findById(req.params.id).populate({
       path: 'assignment',
       populate: { path: 'course', select: 'teacher' }
@@ -127,8 +127,9 @@ router.patch('/:id/grade', requireAuth, requireRole('teacher'), async (req, res)
       return res.status(403).json({ message: 'Not authorized to grade this submission' });
     }
 
-    sub.grade = grade;
-    sub.feedback = feedback;
+    if (score !== undefined) sub.score = score;
+    if (feedback !== undefined) sub.feedback = feedback;
+
     await sub.save();
 
     res.json({ message: 'Grade saved', submission: sub });
@@ -138,6 +139,9 @@ router.patch('/:id/grade', requireAuth, requireRole('teacher'), async (req, res)
   }
 });
 
+/**
+ * Teacher: count submissions for an assignment
+ */
 router.get('/count/:assignmentId', requireAuth, requireRole('teacher'), async (req, res) => {
   try {
     const count = await Submission.countDocuments({ assignment: req.params.assignmentId });
@@ -147,7 +151,6 @@ router.get('/count/:assignmentId', requireAuth, requireRole('teacher'), async (r
     res.status(500).json({ message: 'Error fetching submission count' });
   }
 });
-
 
 /**
  * Teacher: view submissions for a specific assignment
@@ -162,7 +165,6 @@ router.get('/assignment/:assignmentId', requireAuth, requireRole('teacher'), asy
         populate: { path: 'course', select: 'title teacher' }
       });
 
-    // Make sure this teacher owns the course for this assignment
     const filtered = submissions.filter(
       s => s.assignment?.course?.teacher?.toString() === req.user.sub
     );
@@ -173,6 +175,5 @@ router.get('/assignment/:assignmentId', requireAuth, requireRole('teacher'), asy
     res.status(500).json({ message: 'Error fetching assignment submissions' });
   }
 });
-
 
 export default router;
